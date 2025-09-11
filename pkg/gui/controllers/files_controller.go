@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/jesseduffield/lazygit/pkg/commands/models"
 	"github.com/jesseduffield/lazygit/pkg/gui/context"
 	"github.com/jesseduffield/lazygit/pkg/gui/filetree"
+	"github.com/jesseduffield/lazygit/pkg/gui/style"
 	"github.com/jesseduffield/lazygit/pkg/gui/types"
 	"github.com/jesseduffield/lazygit/pkg/utils"
 	"github.com/samber/lo"
@@ -177,11 +179,21 @@ func (self *FilesController) GetKeybindings(opts types.KeybindingsOpts) []*types
 			GetDisabledReason: self.require(self.singleItemSelected()),
 			Description:       self.c.Tr.OpenDiffTool,
 		},
+		// {
+		// 	Key:         opts.GetKey(opts.Config.Files.OpenMergeTool),
+		// 	Handler:     self.c.Helpers().WorkingTree.OpenMergeTool,
+		// 	Description: self.c.Tr.OpenMergeTool,
+		// 	Tooltip:     self.c.Tr.OpenMergeToolTooltip,
+		// },
 		{
-			Key:         opts.GetKey(opts.Config.Files.OpenMergeTool),
-			Handler:     self.c.Helpers().WorkingTree.OpenMergeTool,
-			Description: self.c.Tr.OpenMergeTool,
-			Tooltip:     self.c.Tr.OpenMergeToolTooltip,
+			Key:     opts.GetKey(opts.Config.Files.OpenMergeTool),
+			Handler: self.withItems(self.createMergeConflictMenu),
+			// Description:     self.c.Tr.ViewMergeConflictOptions,
+			// Tooltip:         self.c.Tr.ViewMergeConflictOptionsTooltip,
+			Description:     "Merge conflict options",
+			Tooltip:         "Merge conflict options tooltip...",
+			OpensMenu:       true,
+			DisplayOnScreen: true,
 		},
 		{
 			Key:         opts.GetKey(opts.Config.Files.Fetch),
@@ -1019,6 +1031,93 @@ func (self *FilesController) createStashMenu() error {
 					return self.handleStashSave(self.c.Git().Stash.Push, self.c.Tr.Actions.StashUnstagedChanges)
 				},
 				Key: 'u',
+			},
+		},
+	})
+}
+
+func (self *FilesController) createMergeConflictMenu(nodes []*filetree.FileNode) error {
+	onMergeStrategySelected := func(strategy string) error {
+		normalizedNodes := normalisedSelectedNodes(nodes)
+		fileNodes := lo.Filter(normalizedNodes, func(node *filetree.FileNode, _ int) bool {
+			return node.File != nil
+		})
+		filenames := lo.Map(fileNodes, func(node *filetree.FileNode, _ int) string {
+			return node.GetPath()
+		})
+
+		for _, filename := range filenames {
+			baseID, err := self.c.Git().Branch.ObjectIDAtStage(filename, 1)
+			if err != nil {
+				return err
+			}
+
+			oursID, err := self.c.Git().Branch.ObjectIDAtStage(filename, 2)
+			if err != nil {
+				return err
+			}
+
+			theirsID, err := self.c.Git().Branch.ObjectIDAtStage(filename, 3)
+			if err != nil {
+				return err
+			}
+
+			output, err := self.c.Git().WorkingTree.MergeFile(strategy, oursID, baseID, theirsID)
+			if err != nil {
+				return err
+			}
+
+			if err = os.WriteFile(filename, []byte(output), 0o644); err != nil {
+				return err
+			}
+		}
+
+		err := self.c.Git().WorkingTree.StageFiles(filenames, nil)
+		return self.c.Helpers().MergeAndRebase.CheckMergeOrRebase(err)
+	}
+
+	cmdColor := style.FgBlue
+	return self.c.Menu(types.CreateMenuOptions{
+		// Title: self.c.Tr.MergeConflictOptions,
+		Title: "Resolve merge conflicts",
+		Items: []*types.MenuItem{
+			{
+				// Label: self.c.Tr.CheckoutOurs,
+				LabelColumns: []string{
+					"Use HEAD",
+					cmdColor.Sprint("git merge-file --ours"),
+				},
+				OnPress: func() error {
+					return onMergeStrategySelected("--ours")
+				},
+				Key: 'o',
+			},
+			{
+				// Label: self.c.Tr.CheckoutTheirs,
+				LabelColumns: []string{
+					"Use incoming",
+					cmdColor.Sprint("git merge-file --theirs"),
+				},
+				OnPress: func() error {
+					return onMergeStrategySelected("--theirs")
+				},
+				Key: 't',
+			},
+			{
+				// Label: self.c.Tr.CheckoutTheirs,
+				LabelColumns: []string{
+					"Use both",
+					cmdColor.Sprint("git merge-file --union"),
+				},
+				OnPress: func() error {
+					return onMergeStrategySelected("--union")
+				},
+				Key: 'b',
+			},
+			{
+				Label:   self.c.Tr.OpenMergeTool,
+				OnPress: self.c.Helpers().WorkingTree.OpenMergeTool,
+				Key:     'm',
 			},
 		},
 	})
