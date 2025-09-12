@@ -180,7 +180,7 @@ func (self *FilesController) GetKeybindings(opts types.KeybindingsOpts) []*types
 			Description:       self.c.Tr.OpenDiffTool,
 		},
 		{
-			Key:             opts.GetKey(opts.Config.Files.OpenMergeTool),
+			Key:             opts.GetKey(opts.Config.Files.OpenMergeOptions),
 			Handler:         self.withItems(self.createMergeConflictMenu),
 			Description:     self.c.Tr.ViewMergeConflictOptions,
 			Tooltip:         self.c.Tr.ViewMergeConflictOptionsTooltip,
