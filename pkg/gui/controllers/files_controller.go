@@ -179,19 +179,11 @@ func (self *FilesController) GetKeybindings(opts types.KeybindingsOpts) []*types
 			GetDisabledReason: self.require(self.singleItemSelected()),
 			Description:       self.c.Tr.OpenDiffTool,
 		},
-		// {
-		// 	Key:         opts.GetKey(opts.Config.Files.OpenMergeTool),
-		// 	Handler:     self.c.Helpers().WorkingTree.OpenMergeTool,
-		// 	Description: self.c.Tr.OpenMergeTool,
-		// 	Tooltip:     self.c.Tr.OpenMergeToolTooltip,
-		// },
 		{
-			Key:     opts.GetKey(opts.Config.Files.OpenMergeTool),
-			Handler: self.withItems(self.createMergeConflictMenu),
-			// Description:     self.c.Tr.ViewMergeConflictOptions,
-			// Tooltip:         self.c.Tr.ViewMergeConflictOptionsTooltip,
-			Description:     "Merge conflict options",
-			Tooltip:         "Merge conflict options tooltip...",
+			Key:             opts.GetKey(opts.Config.Files.OpenMergeTool),
+			Handler:         self.withItems(self.createMergeConflictMenu),
+			Description:     self.c.Tr.ViewMergeConflictOptions,
+			Tooltip:         self.c.Tr.ViewMergeConflictOptionsTooltip,
 			OpensMenu:       true,
 			DisplayOnScreen: true,
 		},
@@ -1078,35 +1070,31 @@ func (self *FilesController) createMergeConflictMenu(nodes []*filetree.FileNode)
 
 	cmdColor := style.FgBlue
 	return self.c.Menu(types.CreateMenuOptions{
-		// Title: self.c.Tr.MergeConflictOptions,
-		Title: "Resolve merge conflicts",
+		Title: self.c.Tr.MergeConflictOptionsTitle,
 		Items: []*types.MenuItem{
 			{
-				// Label: self.c.Tr.CheckoutOurs,
 				LabelColumns: []string{
-					"Use HEAD",
+					self.c.Tr.UseHead,
 					cmdColor.Sprint("git merge-file --ours"),
 				},
 				OnPress: func() error {
 					return onMergeStrategySelected("--ours")
 				},
-				Key: 'o',
+				Key: 'h',
 			},
 			{
-				// Label: self.c.Tr.CheckoutTheirs,
 				LabelColumns: []string{
-					"Use incoming",
+					self.c.Tr.UseIncoming,
 					cmdColor.Sprint("git merge-file --theirs"),
 				},
 				OnPress: func() error {
 					return onMergeStrategySelected("--theirs")
 				},
-				Key: 't',
+				Key: 'i',
 			},
 			{
-				// Label: self.c.Tr.CheckoutTheirs,
 				LabelColumns: []string{
-					"Use both",
+					self.c.Tr.UseBoth,
 					cmdColor.Sprint("git merge-file --union"),
 				},
 				OnPress: func() error {
@@ -1115,7 +1103,10 @@ func (self *FilesController) createMergeConflictMenu(nodes []*filetree.FileNode)
 				Key: 'b',
 			},
 			{
-				Label:   self.c.Tr.OpenMergeTool,
+				LabelColumns: []string{
+					self.c.Tr.OpenMergeTool,
+					cmdColor.Sprint("git mergetool"),
+				},
 				OnPress: self.c.Helpers().WorkingTree.OpenMergeTool,
 				Key:     'm',
 			},
